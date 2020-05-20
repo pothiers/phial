@@ -19,7 +19,24 @@ import phial.node_functions as nf
 import phial.gen_funcs as gf
 from phial.utils import tic,toc,Timer
 
-
+def hifi(maxNodes=9, outdir='~/phial/hifi'):
+    nn = 'ABCDEFGHIJKLMNOP'
+    paper = 'https://www.mdpi.com/1099-4300/17/8/5472'
+    for expnum,numNodes in enumerate(range(1,maxNodes+1)):
+        edges = []
+        for i in range(numNodes-1):
+            edges.extend([(nn[i],nn[i]), (nn[i],nn[i+1])])
+        edges.extend([(nn[numNodes-1],nn[numNodes-1]), (nn[numNodes-1],nn[0])])
+        print(f'# ExpNum={expnum} edges={edges}')
+        title = f'hifi {numNodes} nodes'
+        exp = Experiment(edges,
+                         saveDir=outdir,
+                         default_func=nf.XOR_func,
+                         title=title,
+                         comment=f'see figure 5 in {paper}')
+        info = exp.run(limit=1, save=f'hifi-{numNodes}.json')
+        print(f'# NumNodes={numNodes} Info={info}')
+    
 # nodes are extracted from edges.  This means an experiment cannot contain
 # a node that has no edges. (self edge is ok)
 class Experiment():
@@ -120,6 +137,7 @@ class Experiment():
         dd = dict(
             timestamp = str(self.starttime),
             duration = self.elapsed, # seconds
+            node_count = len(self.net),
             results = self.results,
             connected_components = self.net.state_cc,
             cycles = len(list(self.net.state_cycles)),
@@ -129,13 +147,15 @@ class Experiment():
         return dd
         
 
-    def run(self, verbose=False, plot=False, save=True, **kwargs):
+    def run(self, verbose=False, plot=False, save=True, limit=None,
+            **kwargs):
         """Calculate big-phi for all reachable states over network defined 
         in this instance.
 
         :param verbose: Runtime info on what is being done
         :param plot: Plots analysis of results
         :param save: if True save experiment to auto-generated name. If str, save to that basename in `saveDir`
+        :param limit: Num of phi calcs to do. NONE: do all valid states
         :returns: info about results
         :rtype: dict
 
@@ -145,14 +165,17 @@ class Experiment():
         timer0.tic # start tracking time
         self.starttime = datetime.now()
 
+        print(f'Starting run at {datetime.now().isoformat(timespec='seconds')}')
         # Calculate!
-        for s in self.net.out_states:
+        for i,s in enumerate(self.net.out_states):
             timer1.tic 
             phi = self.net.phi(s)
             secs = timer1.toc
             self.results[s] = dict(phi=phi, elapsed_seconds=secs)
             if verbose:
                 print(f"Calculated Φ = {phi} using state={s} in {secs} seconds")
+            if (limit is not None) and (i >= limit-1):
+                break
         self.elapsed = timer0.toc  # Seconds since start
         if plot:
             self.analyze(**kwargs)
@@ -180,7 +203,7 @@ class Experiment():
         with open(fname, 'w') as f:
             #!json.dump(out, indent=2, fp=f)
             json.dump(out, fp=f)
-        print(f'Saved experiment with results to: {fname}')
+        print(f'Saved experiment with results to: {fname}\n')
         return fname
     
     def analyze(self, figsize=(14,4), countUnreachable=False):

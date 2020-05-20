@@ -5,6 +5,8 @@ from random import choice
 import subprocess
 import json
 import re
+import operator
+import functools
 # External packages
 import networkx as nx
 from networkx.drawing.nx_pydot import write_dot,pydot_layout
@@ -16,6 +18,10 @@ from pyphi.convert import sbn2sbs, sbs2sbn, to_2d
 from IPython.display import Image
 # Local packages
 import phial.node_functions as nf
+
+def rep_nth_char(ss, n, c=''):
+    """Remove or replace nth char in string SS"""
+    return ss[:n] + c + ss[n+1:]
 
 
 def nodes_state(state, nodelabels):
@@ -91,15 +97,15 @@ class Node():
         """States supported by this node."""
         return range(self.num_states)
 
-    def __repr__(self):
-        return ('Node('
-                f'label={self.label}, '
-                f'id={self.id}, '
-                f'num_states={self.num_states}, '
-                f'func={self.func.__name__}')
-
-    def __str__(self):
-        return f'{self.label}({self.id}): {self.num_states},{self.func.__name__}'
+    #!def __repr__(self):
+    #!    return ('Node('
+    #!            f'label={self.label}, '
+    #!            f'id={self.id}, '
+    #!            f'num_states={self.num_states}, '
+    #!            f'func={self.func.__name__}')
+    #!
+    #!def __str__(SELF):
+    #!    return f'{self.label}({self.id}): {self.num_states},{self.func.__name__}'
 
     
 class Net():
@@ -158,8 +164,54 @@ class Net():
             allstates = all_states(len(self.graph), backwards=True)
             allnodes = [n.label for n in nodes]
             self.tpm = pd.DataFrame(tpm, index=allstates, columns=allnodes)
-            
-            
+            self.tpm.index.name = ''.join([n.label for n in self.nodes])
+
+    #!!!
+    def nodeTpm(self, nodeLabel):
+        """Generate local TPM for node from system TPM.
+        Resulting TPM only uses in-states that matter to the result of nodeLabel.
+        Accepts non-binary nodes.
+        """
+        # Try all nodes in states to see if each matters for out-state of
+        # nodeLabel truth-table.  If node matters for any rows,
+        # keep it, else remove it from all states and
+        # remove duplicate state entries.
+        
+        
+        def state_node_variants(state,node):
+            """Return copies of STATE modified with all possible states of NODE
+            """
+            return [rep_nth_char(state,node.id,str(ns))
+                    for ns in range(node.num_states)]
+
+        tt = self.tpm.loc[:,nodeLabel] # full truthTable for NODE
+        
+        # Find input nodes that matter (causes)
+        causes = set() # Nodes that effect truth table
+        for node in self.nodes:
+            for state in tt.index:
+                snv = state_node_variants(state,node)
+                # NODE makes a difference to out-states for nodeLabel
+                if not functools.reduce(operator.eq, [tt.loc[s] for s in snv]):
+                    causes.add(node)
+                   
+        # Remove columns that don't matter to truthTable
+        cause_ids = [n.id for n in causes]
+        nuke_ids = set(range(len(self))).difference(cause_ids)
+        #! print(f'cause nodes={[n.label for n in causes]}')
+        #! print(f'nuke_ids={nuke_ids}')
+        new_tt_lut = dict() # d[localState] = nodeState
+        for state in tt.index:
+            s = state
+            for i in sorted(nuke_ids,reverse=True):
+                s = rep_nth_char(s,i)
+            new_tt_lut[s] = tt.loc[state]
+
+        df = pd.DataFrame(new_tt_lut.values(),
+                          index=new_tt_lut.keys(), columns=[nodeLabel])
+        df.index.name = ''.join(sorted([n.label for n in causes]))
+        return df
+    
     @property
     def state_graph(self):
         """Get the state-to-state graph labeled with states.
@@ -225,8 +277,8 @@ class Net():
             tpm = list(S.edges),
             nodes=[dict(label=n.label,
                         id=n.id,
-                        num_states=n.num_states,
-                        func=re.sub('_func$','',n.func.__name__) )
+                        #func=re.sub('_func$','',n.func.__name__),
+                        num_states=n.num_states )
                    for n in self.nodes],
         )
         if filename is not None:

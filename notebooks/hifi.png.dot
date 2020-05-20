@@ -1,10 +1,26 @@
-strict digraph "3-node mostly bidirectional; OR, XOR, AND" {
+digraph "None" {
 A;
 B;
 C;
+D;
+E;
+F;
+A -> A;
 A -> B;
+A -> F;
 B -> A;
+B -> B;
 B -> C;
-C -> A;
 C -> B;
+C -> C;
+C -> D;
+D -> C;
+D -> D;
+D -> E;
+E -> D;
+E -> E;
+E -> F;
+F -> A;
+F -> E;
+F -> F;
 }
