@@ -10,9 +10,12 @@ import json
 import platform
 from pprint import pprint
 from pathlib import Path
+import multiprocessing as mp
+import time
 # External packages
 import pandas as pd
 import matplotlib.pyplot as plt
+import pyphi
 # Local packages
 import phial.toolbox as tb
 import phial.node_functions as nf
@@ -36,6 +39,28 @@ def hifi(maxNodes=9, outdir='~/phial/hifi'):
                          comment=f'see figure 5 in {paper}')
         info = exp.run(limit=1, save=f'hifi-{numNodes}.json')
         print(f'# NumNodes={numNodes} Info={info}')
+
+def limit_experiment_time(experiment, max_seconds=20):
+    pyphi.config.PROGRESS_BARS = False
+    res = None
+    Q = mp.Queue()
+    def erun():
+        Q.put(experiment.run(limit=1, save=None))
+    p = mp.Process(target=erun)
+    p.start()
+    p.join(max_seconds)
+    p.terminate()
+    if p.exitcode is None:
+        time.sleep(0.5)
+    print(f'p.exitcode={p.exitcode}')
+    if p.exitcode < 0:
+        # didn't finish
+        print(f'Timeout after {max_seconds} seconds')
+    else:
+        res=Q.get()
+        print(f'res = {res}')
+    return res
+    
     
 # nodes are extracted from edges.  This means an experiment cannot contain
 # a node that has no edges. (self edge is ok)
@@ -45,8 +70,9 @@ class Experiment():
     Nodes not given as keys to funcs dict default to 'default_func'
     
     :param edges: connectivity edges; e.g. [(0,1), (1,2), (2,0)]
-    :param title: Label for experiment
-    :param comment: Additional reports associated with experiment
+    :param name:  Name for experiment suitable for use in filename.
+    :param title: Label for experiment suitable for display on figures.
+    :param comment: Additional remarks associated with experiment.
 
     :param funcs: dict[nodeLabel] = func; func can be python function or 
         a stripped name from library (node_functions.py) e.g. 'XOR'.
@@ -57,13 +83,15 @@ class Experiment():
     :param default_func: default function (mechanism) for all nodes
     """
 
-    def __init__(self, edges,
+    def __init__(self,
+                 edges=[list('AB'),list('BC')],
+                 name=None,
                  title='',
                  comment=None,
                  funcs={}, # dict[nodeLabel] = func
                  states={}, # dict[nodeLabel] = numStates
                  net = None,
-                 saveDir = Path.home() / 'phial',
+                 saveDir = '~/.phial/results',
                  default_statesPerNode=2,
                  default_func=nf.MJ_func):
         self.results = {}
@@ -71,7 +99,8 @@ class Experiment():
         self.starttime = None
         self.elapsed = None
         self.saveDir = Path(saveDir).expanduser()
-
+        self.saveDir.mkdir(parents=True, exist_ok=True)
+        
         if net is not None:
             self.net = net
         else:
@@ -165,7 +194,7 @@ class Experiment():
         timer0.tic # start tracking time
         self.starttime = datetime.now()
 
-        print(f'Starting run at {datetime.now().isoformat(timespec='seconds')}')
+        print(f'Starting run at {datetime.now().isoformat(timespec="seconds")}')
         # Calculate!
         for i,s in enumerate(self.net.out_states):
             timer1.tic 

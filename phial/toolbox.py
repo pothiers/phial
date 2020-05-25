@@ -7,6 +7,8 @@ import json
 import re
 import operator
 import functools
+from pathlib import Path
+import tempfile
 # External packages
 import networkx as nx
 from networkx.drawing.nx_pydot import write_dot,pydot_layout
@@ -25,8 +27,8 @@ def rep_nth_char(ss, n, c=''):
 
 
 def nodes_state(state, nodelabels):
-    """Convert system state (statehexstr) to dict[nodeLabel]=nodeState"""
-    return dict((n,int(s,16)) for n,s in zip(nodelabels, state))
+   """Convert system state (statehexstr) to dict[nodeLabel]=nodeState"""
+   return dict((n,int(s,16)) for n,s in zip(nodelabels, state))
 
 def system_state(nodes_state):
     """Convert nodes_state (dict[label]=state) to statehexstr"""
@@ -46,15 +48,33 @@ def all_states(N, spn=2, backwards=False):
         states = sorted(states, key= lambda s: s[::-1])
     return states
 
-def dotgraph(G, pngfile):
-    """Return networkx DiGraph. Maybe write to PNG file."""
-    dotfile = pngfile + ".dot"
-    write_dot(G, dotfile)
-    cmd = (f'dot -Tpng -o{pngfile} {dotfile} ')
-    with open(pngfile,'w') as f:
-        subprocess.check_output(cmd, shell=True)
-    return Image(filename=pngfile)
+def dotgraph(G, pngfile=None):
+    """Draw a networkx graph (in notebook, ipython).
     
+    In ipython, execute ``matplotlib.pyplot.show()`` to force display.
+    
+    :param pngfile: (str) Filename to write image to. (if None, use tmpfile)
+    :returns: image of graph rendering.
+    :rtype: IPython.display.Image
+
+    """
+    if pngfile is None:
+        fname = tempfile.NamedTemporaryFile(suffix='.png')
+        pfx = fname.name
+    else:
+        pfx = fname = pngfile
+    dotfile = tempfile.NamedTemporaryFile(prefix=pfx, suffix='.dot') 
+    write_dot(G, dotfile.name)
+    if pngfile is None:
+        cmd = (f'dot -Tpng -o{fname.name} {dotfile.name}')
+        subprocess.check_output(cmd, shell=True)
+        im = Image(filename=fname.name)
+    else:
+        cmd = (f'dot -Tpng -o{fname} {dotfile.name}')
+        subprocess.check_output(cmd, shell=True)
+        im = Image(filename=fname)
+    return im
+
 # NB: This does NOT hold the state of a node.  That would increase load
 # on processing multiple states -- each with its own set of nodes!
 # Instead, a statestr contains states for all nodes a specific time.
@@ -76,6 +96,8 @@ class Node():
         self.id = id
         self.label = label or id
         self.num_states = num_states
+        if type(func) == str:
+            func = nf.func_from_name(func)
         self.func = func 
         
     def truth_table(self, max_inputs=4):
@@ -225,7 +247,7 @@ class Net():
         S = nx.relabel_nodes(G, mapping)
         return S
 
-    def from_json(self, jsonstr,
+    def from_json_file(self, jsonfile, #jsonstr,
                   func = 'MJ', # default mechanism for all nodes
                   SpN=2):
         """Overwrite contents of this Net with data from jsonstr.
@@ -239,13 +261,16 @@ class Net():
 
         """
         self.graph = self.node_lut = self.tpm = None
-        jdict = json.loads(jsonstr)
+        with open(Path(jsonfile).expanduser().with_suffix('.json'), 'r') as f:
+            jdict = json.load(fp=f)
         edges = jdict.get('edges',[])
         i,j = zip(*edges)
         n_list = sorted(set(i+j))
         nodes = [Node(**nd) for nd in jdict.get('nodes',[])]
         for n in nodes:
-            n.func = nf.funcLUT[n.func]
+            if type(n.func) == str:
+                n.func = nf.funcLUT[n.func]
+
         
         self.graph = nx.DiGraph(edges)
         self.node_lut = dict((n.label,n) for n in nodes)
@@ -259,9 +284,10 @@ class Net():
                 if s2s_df.loc[istate,outstate] == 0:
                     continue
                 ns = nodes_state(outstate,self.node_lut.keys())
-                print(f'DBG: istate={istate} ns={ns}')
+                #print(f'DBG: istate={istate} ns={ns}')
                 df.loc[istate] = list(ns.values())
         self.tpm = df
+        return self
 
     def to_json(self, filename=None):
         """Output contents of this Net in JSON format.
@@ -277,7 +303,7 @@ class Net():
             tpm = list(S.edges),
             nodes=[dict(label=n.label,
                         id=n.id,
-                        #func=re.sub('_func$','',n.func.__name__),
+                        func=re.sub('_func$','',n.func.__name__),
                         num_states=n.num_states )
                    for n in self.nodes],
         )
@@ -477,10 +503,11 @@ class Net():
                 subprocess.check_output(cmd, shell=True)
         return G
 
-    def draw(self):
-        """Draw the node connectivity graph (in notebook).
+    def draw0(self):
+        """Draw the node connectivity graph (in notebook, ipython).
 
         In ipython, execute ``matplotlib.pyplot.show()`` to force display.
+        This rendering uses straight lines so self edges are not visible.
 
         :returns: net graph
         :rtype: nx.DiGraph
@@ -488,9 +515,19 @@ class Net():
         """
         nx.draw(self.graph,
                 pos=pydot_layout(self.graph),
-                # label='gnp_random_graph({N},{p})',
                 with_labels=True )
         return self.graph
+
+    def draw(self, pngfile=None):
+        """Draw the node connectivity graph (in notebook, ipython).
+
+        In ipython, execute ``matplotlib.pyplot.show()`` to force display.
+
+        :returns: net graph
+        :rtype: nx.DiGraph
+
+        """
+        return dotgraph(self.graph, pngfile)
 
     def draw_states(self):
         """Draw state-to-state graph (in notebook).
@@ -513,7 +550,13 @@ class Net():
         return pyphi.network.Network(self.tpm.to_numpy(),
                                      cm=self.cm,
                                      node_labels=self.node_labels)
-
+    def save(self,filename):
+        """Save in JSON format."""
+        filepath = Path(filename).expanduser().with_suffix('.json')
+        jj = self.to_json()
+        with open(filepath, 'w') as f:
+            json.dump(jj, fp=f)
+        return f'Saved net to: {filepath}'
     
     def phi(self, statestr=None, verbose=False):
         """Calculate phi for net."""
@@ -537,18 +580,59 @@ def phi_all_states(net):
         print(f"Φ = {results[statestr]} using state={statestr}")
     return results
 
+def load_net(filename):
+    """Create net from JSON format."""
+    filepath = Path(filename).expanduser().with_suffix('.json')
+    net = Net().from_json_file(filename)
+    return net
+
 def pyphi_network_to_net(network):
-    """Load pyphi network into this instance (overwrite existing data)."""
+    """Return new Net stuffed with content of Network."""
     labelLUT = dict(zip(network._node_indices, network._node_labels))
     cm = network.cm
     G = nx.DiGraph(cm)
-    tpm = to_2d(network.tpm) # sbn form
     net = Net(G.edges)
+    tpm = to_2d(network.tpm) # sbn form
     allstates = list(itertools.product(*[n.states for n in net.nodes]))
     for si,sv in enumerate(allstates):
-        s0 = ''.join(f'{s:x}' for s in sv)
+        
+        s0 = ''.join(f'{s:x}' for s in sv)[::-1] #network.tpm not lexicographical
         for ni in range(len(net)):
             node = net.nodes[ni]
             net.tpm.loc[s0,node.label] = tpm[si][ni]
     return net
 
+def convert_networks_to_nets(outdir, network_func_list=[]):
+    import pyphi.examples as ex
+    if len(network_func_list) == 0:
+        network_func_list = [
+            ex.actual_causation,
+            ex.PQR_network,
+            ex.basic_network,
+            ex.basic_noisy_selfloop_network,
+            ex.blackbox_network,
+            ex.disjunction_conjunction_network,
+            ex.fig10,
+            ex.fig14,
+            ex.fig16,
+            ex.fig1a,
+            ex.fig3a,
+            ex.fig3b,
+            ex.fig4,
+            ex.fig5a,
+            ex.fig5b,
+            ex.fig6,
+            ex.fig8,
+            ex.fig9,
+            ex.macro_network,
+            ex.propagation_delay_network,
+            ex.residue_network,
+            ex.rule110_network,
+            ex.rule154_network,
+            ex.xor_network]
+    for network_func in network_func_list:
+        network = network_func()
+        f=pyphi_network_to_net(network).save(Path(outdir,network_func.__name__))
+        print(f)
+        
+    
