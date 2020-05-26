@@ -4,8 +4,11 @@ from pathlib import Path
 # External packages
 import pyphi
 import pyphi.examples as ex
+import networkx as nx
 # Local packages
 from phial.utils import tic,toc,Timer
+from phial.experiment import Experiment, timeout_run
+
 
 funcLUT = dict(
     (name.replace('_func',''),obj)
@@ -57,7 +60,7 @@ tpms = [
 
 
 def calc_examples(csvfile=None, verbose=False):
-    """Calculate Phi for all known examples.
+    """Calculate Phi for all known pyphi examples.
 
     Current set comes from ``pyphi.examples``.
     Record: Name of example, State, Phi, compute time (secs)
@@ -90,7 +93,7 @@ def calc_examples(csvfile=None, verbose=False):
         numcol = len(results[0])
         with open(Path(csvfile).expanduser(), 'w') as f:
             writer = csv.writer(f)
-            writer.writerow(['Name', 'State', 'Phi', 'Time(secs)'])
+            writer.writerow(['Name', 'State', 'Phi', 'Time (secs)'])
             for row in results:
                 writer.writerow(row)
             writer.writerow(['']*numcol)
@@ -100,3 +103,58 @@ def calc_examples(csvfile=None, verbose=False):
                 writer.writerow(it)
         print(f'Wrote results to CSV file: {csvfile}')
     return dict(results=results, conf=conf)
+
+def calc_nxgraphs(csvfile=None, verbose=False, timeout=1):
+    """Calc phi for random network graphs.
+    
+    Some of these may take a very long time.  To avoid spending too much time on 
+    any one, stop calc if it takes longer than TIMEOUT seconds.  
+
+    https://networkx.github.io/documentation/stable/reference/generators.html
+
+    :param timeout: Number of seconds to let compute run before terminating it.
+    :returns: results
+    :rtype: dict
+
+    """
+    pyphi.config.PARALLEL_CUT_EVALUATION = False
+    conf =pyphi.config.snapshot()
+
+    graph_list = [
+        # There are 1253 graphs in graph_atlas
+        nx.graph_atlas(49),
+        nx.balanced_tree(2,2),
+        nx.complete_graph(5),
+        nx.complete_multipartite_graph(2,3,3),
+        nx.circular_ladder_graph(3),
+        nx.circulant_graph(5,[1,2]),
+        nx.cycle_graph(5),
+        nx.dorogovtsev_goltsev_mendes_graph(2),
+        #!nx.ladder_graph(3),
+        #!nx.margulis_gabber_galil_graph(2),
+        #!nx.chordal_cycle_graph(5),
+        ]
+        
+    long_running = []
+    computations = {}
+    for i,G in enumerate(graph_list):
+        exp = Experiment(nx.DiGraph(G).edges, default_func='MJ')
+
+        if G.name:
+            gname = f'{G.name}_{i}'
+        else:
+            gname = G.name or f'G_{i}'        
+
+        print(f'Computing phi for graph: {gname}')
+        res = timeout_run(exp, timeout=timeout)
+
+        if res is None:
+            long_running.append(gname)
+        else:
+            computations[gname] = (res.get('phi'), res.get('duration'))
+        
+    
+    return dict(aborted=long_running,
+                results=computations,
+                timeout=timeout,
+                conf=conf)

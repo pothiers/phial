@@ -52,13 +52,31 @@ def limit_experiment_time(experiment, max_seconds=20):
     p.terminate()
     if p.exitcode is None:
         time.sleep(0.5)
-    print(f'p.exitcode={p.exitcode}')
     if p.exitcode < 0:
         # didn't finish
         print(f'Timeout after {max_seconds} seconds')
     else:
         res=Q.get()
-        print(f'res = {res}')
+        #print(f'res = {res}')
+    return res
+
+def timeout_run(experiment, timeout, limit=1):
+    pyphi.config.PROGRESS_BARS = False
+    res = None
+    Q = mp.Queue()
+    def erun():
+        Q.put(experiment.run(limit=limit, save=None))
+    p = mp.Process(target=erun)
+    p.start()
+    p.join(timeout)
+    p.terminate()
+    while p.exitcode is None:
+        time.sleep(0.1)
+    if p.exitcode >= 0:
+        res=Q.get()
+    else:
+        print(f'ABORTED experiment')
+    #p.close()  # python 3.7
     return res
     
     
@@ -81,6 +99,7 @@ class Experiment():
     :param saveDir: directory to save experiment results into.
     :param default_statesPerNode: default number of States per Node
     :param default_func: default function (mechanism) for all nodes
+    :param timeout: Terminate experiment if it runs longer that this (seconds)
     """
 
     def __init__(self,
@@ -93,14 +112,17 @@ class Experiment():
                  net = None,
                  saveDir = '~/.phial/results',
                  default_statesPerNode=2,
-                 default_func=nf.MJ_func):
+                 default_func=nf.MJ_func,
+                 timeout = None ):
         self.results = {}
         self.filename = None
         self.starttime = None
         self.elapsed = None
+        self.elapsed = None
         self.saveDir = Path(saveDir).expanduser()
         self.saveDir.mkdir(parents=True, exist_ok=True)
-        
+        self.timeout = timeout
+
         if net is not None:
             self.net = net
         else:
@@ -160,16 +182,17 @@ class Experiment():
     def info(self):
         """Info about network and  results.
 
-        :returns: dict with keys: timestamp, duration, results, uname
+        :returns: dict with keys: timestamp, phi, duration, results, uname
         :rtype: dict
         """
         dd = dict(
             timestamp = str(self.starttime),
             duration = self.elapsed, # seconds
+            phi = max([d.get('phi',0) for d in self.results.values()]),
             node_count = len(self.net),
             results = self.results,
-            connected_components = self.net.state_cc,
-            cycles = len(list(self.net.state_cycles)),
+            #connected_components = self.net.state_cc,
+            #cycles = len(list(self.net.state_cycles)),
             filename = self.filename,
             uname = platform.uname(),
         )
@@ -194,7 +217,8 @@ class Experiment():
         timer0.tic # start tracking time
         self.starttime = datetime.now()
 
-        print(f'Starting run at {datetime.now().isoformat(timespec="seconds")}')
+        if verbose:
+            print(f'Starting run at {datetime.now().isoformat(timespec="seconds")}')
         # Calculate!
         for i,s in enumerate(self.net.out_states):
             timer1.tic 
