@@ -602,6 +602,15 @@ def pyphi_network_to_net(network):
             net.tpm.loc[s0,node.label] = tpm[si][ni]
     return net
 
+def pyphi_example_module2networks(moduleName='pyphi.examples'):
+    if module is None:
+        return None
+    # lut[name] =>  network
+    lut=dict((name,obj())    # lut[name, network]
+             for name,obj in inspect.getmembers(sys.modules[moduleName])
+             if (inspect.isfunction(obj) and name.endswith('_network')))
+    return lut
+
 def convert_networks_to_nets(outdir, network_func_list=[]):
     import pyphi.examples as ex
     if len(network_func_list) == 0:
@@ -636,3 +645,46 @@ def convert_networks_to_nets(outdir, network_func_list=[]):
         print(f)
         
     
+
+def sample(net=None):
+    networkLUT = pyphi_example_module2networks()
+    net = pyphi_network_to_net(netLUT['basic_network'])
+    
+
+##############################################################################
+def my_parser():
+    prog = sys.argv[0]
+    parser = argparse.ArgumentParser(
+        #!version='1.0.1',
+        description='Run an IIT experiment',
+        epilog=f'EXAMPLE: {prog} my_network.json"'
+        )
+    parser.add_argument('net',
+                        help=('Net definition in JSON format containing '
+                              'at least "edges" key. '
+                              'Optional keys: "funcs", "title"') )
+    parser.add_argument('--loglevel',      help='Kind of diagnostic output',
+                        choices = ['CRTICAL','ERROR','WARNING','INFO','DEBUG'],
+                        default='WARNING',
+                        )
+    return parser
+    
+def main():
+    parser = my_parser()
+    args = parser.parse_args()
+    log_level = getattr(logging, args.loglevel.upper(), None)
+    if not isinstance(log_level, int):
+        parser.error('Invalid log level: %s' % args.loglevel) 
+    logging.basicConfig(level = log_level,
+                        format='%(levelname)s %(message)s',
+                        datefmt='%m-%d %H:%M'
+                        )
+    #logging.debug('Debug output is enabled!!!')
+    res = sample(vars(args))
+    print(f'res={res}')
+
+
+if __name__ == '__main__':
+    main()
+        
+        
