@@ -56,15 +56,16 @@ See <a class="reference internal" href="#experiment-cmd-line"><span class="std s
 <a class="reference external" href="https://www.graphviz.org/">https://www.graphviz.org/</a></p>
 <dl class="py class">
 <dt id="experiment.Experiment">
-<em class="property">class </em><code class="sig-prename descclassname">experiment.</code><code class="sig-name descname">Experiment</code><span class="sig-paren">(</span><em class="sig-param">edges</em>, <em class="sig-param">title=''</em>, <em class="sig-param">comment=None</em>, <em class="sig-param">funcs={}</em>, <em class="sig-param">states={}</em>, <em class="sig-param">net=None</em>, <em class="sig-param">saveDir=PosixPath('/home/pothiers/phial')</em>, <em class="sig-param">default_statesPerNode=2</em>, <em class="sig-param">default_func=&lt;function MJ_func&gt;</em><span class="sig-paren">)</span><a class="headerlink" href="#experiment.Experiment" title="Permalink to this definition">¶</a></dt>
+<em class="property">class </em><code class="sig-prename descclassname">experiment.</code><code class="sig-name descname">Experiment</code><span class="sig-paren">(</span><em class="sig-param">edges=[['A', 'B'], ['B', 'C']], name=None, title='', comment=None, funcs={}, states={}, net=None, saveDir='~/.phial/results', default_statesPerNode=2, default_func=&lt;function MJ_func&gt;, timeout=None</em><span class="sig-paren">)</span><a class="headerlink" href="#experiment.Experiment" title="Permalink to this definition">¶</a></dt>
 <dd><p>Setup, run, analyze IIT experiments.</p>
 <p>Nodes not given as keys to funcs dict default to ‘default_func’</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>edges</strong> – connectivity edges; e.g. [(0,1), (1,2), (2,0)]</p></li>
-<li><p><strong>title</strong> – Label for experiment</p></li>
-<li><p><strong>comment</strong> – Additional reports associated with experiment</p></li>
+<li><p><strong>name</strong> – Name for experiment suitable for use in filename.</p></li>
+<li><p><strong>title</strong> – Label for experiment suitable for display on figures.</p></li>
+<li><p><strong>comment</strong> – Additional remarks associated with experiment.</p></li>
 <li><p><strong>funcs</strong> – dict[nodeLabel] = func; func can be python function or 
 a stripped name from library (node_functions.py) e.g. ‘XOR’.</p></li>
 <li><p><strong>states</strong> – dict[nodeLabel] = numStatesForNode</p></li>
@@ -72,6 +73,7 @@ a stripped name from library (node_functions.py) e.g. ‘XOR’.</p></li>
 <li><p><strong>saveDir</strong> – directory to save experiment results into.</p></li>
 <li><p><strong>default_statesPerNode</strong> – default number of States per Node</p></li>
 <li><p><strong>default_func</strong> – default function (mechanism) for all nodes</p></li>
+<li><p><strong>timeout</strong> – Terminate experiment if it runs longer that this (seconds)</p></li>
 </ul>
 </dd>
 </dl>
@@ -136,7 +138,7 @@ one of the available functions to selected nodes.</p>
 <dd><p>Info about network and  results.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Returns</dt>
-<dd class="field-odd"><p>dict with keys: timestamp, duration, results, uname</p>
+<dd class="field-odd"><p>dict with keys: timestamp, phi, duration, results, uname</p>
 </dd>
 <dt class="field-even">Return type</dt>
 <dd class="field-even"><p>dict</p>
@@ -146,7 +148,7 @@ one of the available functions to selected nodes.</p>
 
 <dl class="py method">
 <dt id="experiment.Experiment.run">
-<code class="sig-name descname">run</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">verbose</span><span class="o">=</span><span class="default_value">False</span></em>, <em class="sig-param"><span class="n">plot</span><span class="o">=</span><span class="default_value">False</span></em>, <em class="sig-param"><span class="n">save</span><span class="o">=</span><span class="default_value">True</span></em>, <em class="sig-param"><span class="o">**</span><span class="n">kwargs</span></em><span class="sig-paren">)</span><a class="headerlink" href="#experiment.Experiment.run" title="Permalink to this definition">¶</a></dt>
+<code class="sig-name descname">run</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">verbose</span><span class="o">=</span><span class="default_value">False</span></em>, <em class="sig-param"><span class="n">plot</span><span class="o">=</span><span class="default_value">False</span></em>, <em class="sig-param"><span class="n">save</span><span class="o">=</span><span class="default_value">True</span></em>, <em class="sig-param"><span class="n">limit</span><span class="o">=</span><span class="default_value">None</span></em>, <em class="sig-param"><span class="o">**</span><span class="n">kwargs</span></em><span class="sig-paren">)</span><a class="headerlink" href="#experiment.Experiment.run" title="Permalink to this definition">¶</a></dt>
 <dd><p>Calculate big-phi for all reachable states over network defined 
 in this instance.</p>
 <dl class="field-list simple">
@@ -155,6 +157,7 @@ in this instance.</p>
 <li><p><strong>verbose</strong> – Runtime info on what is being done</p></li>
 <li><p><strong>plot</strong> – Plots analysis of results</p></li>
 <li><p><strong>save</strong> – if True save experiment to auto-generated name. If str, save to that basename in <cite>saveDir</cite></p></li>
+<li><p><strong>limit</strong> – Num of phi calcs to do. NONE: do all valid states</p></li>
 </ul>
 </dd>
 <dt class="field-even">Returns</dt>
@@ -184,6 +187,21 @@ in this instance.</p>
 </dd></dl>
 
 </dd></dl>
+
+<dl class="py function">
+<dt id="experiment.hifi">
+<code class="sig-prename descclassname">experiment.</code><code class="sig-name descname">hifi</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">maxNodes</span><span class="o">=</span><span class="default_value">9</span></em>, <em class="sig-param"><span class="n">outdir</span><span class="o">=</span><span class="default_value">'~/phial/hifi'</span></em><span class="sig-paren">)</span><a class="headerlink" href="#experiment.hifi" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py function">
+<dt id="experiment.limit_experiment_time">
+<code class="sig-prename descclassname">experiment.</code><code class="sig-name descname">limit_experiment_time</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">experiment</span></em>, <em class="sig-param"><span class="n">max_seconds</span><span class="o">=</span><span class="default_value">20</span></em><span class="sig-paren">)</span><a class="headerlink" href="#experiment.limit_experiment_time" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py function">
+<dt id="experiment.timeout_run">
+<code class="sig-prename descclassname">experiment.</code><code class="sig-name descname">timeout_run</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">experiment</span></em>, <em class="sig-param"><span class="n">timeout</span></em>, <em class="sig-param"><span class="n">limit</span><span class="o">=</span><span class="default_value">1</span></em><span class="sig-paren">)</span><a class="headerlink" href="#experiment.timeout_run" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
 
 <div class="section" id="running-an-experiment-from-the-command-line">
 <span id="experiment-cmd-line"></span><h3>Running an experiment from the command line<a class="headerlink" href="#running-an-experiment-from-the-command-line" title="Permalink to this headline">¶</a></h3>
@@ -297,9 +315,25 @@ See also: cm</p>
 
 <dl class="py method">
 <dt id="toolbox.Net.draw">
-<code class="sig-name descname">draw</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#toolbox.Net.draw" title="Permalink to this definition">¶</a></dt>
-<dd><p>Draw the node connectivity graph (in notebook).</p>
+<code class="sig-name descname">draw</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">pngfile</span><span class="o">=</span><span class="default_value">None</span></em><span class="sig-paren">)</span><a class="headerlink" href="#toolbox.Net.draw" title="Permalink to this definition">¶</a></dt>
+<dd><p>Draw the node connectivity graph (in notebook, ipython).</p>
 <p>In ipython, execute <code class="docutils literal notranslate"><span class="pre">matplotlib.pyplot.show()</span></code> to force display.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns</dt>
+<dd class="field-odd"><p>net graph</p>
+</dd>
+<dt class="field-even">Return type</dt>
+<dd class="field-even"><p>nx.DiGraph</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt id="toolbox.Net.draw0">
+<code class="sig-name descname">draw0</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#toolbox.Net.draw0" title="Permalink to this definition">¶</a></dt>
+<dd><p>Draw the node connectivity graph (in notebook, ipython).</p>
+<p>In ipython, execute <code class="docutils literal notranslate"><span class="pre">matplotlib.pyplot.show()</span></code> to force display.
+This rendering uses straight lines so self edges are not visible.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Returns</dt>
 <dd class="field-odd"><p>net graph</p>
@@ -326,8 +360,8 @@ See also: cm</p>
 </dd></dl>
 
 <dl class="py method">
-<dt id="toolbox.Net.from_json">
-<code class="sig-name descname">from_json</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">jsonstr</span></em>, <em class="sig-param"><span class="n">func</span><span class="o">=</span><span class="default_value">'MJ'</span></em>, <em class="sig-param"><span class="n">SpN</span><span class="o">=</span><span class="default_value">2</span></em><span class="sig-paren">)</span><a class="headerlink" href="#toolbox.Net.from_json" title="Permalink to this definition">¶</a></dt>
+<dt id="toolbox.Net.from_json_file">
+<code class="sig-name descname">from_json_file</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">jsonfile</span></em>, <em class="sig-param"><span class="n">func</span><span class="o">=</span><span class="default_value">'MJ'</span></em>, <em class="sig-param"><span class="n">SpN</span><span class="o">=</span><span class="default_value">2</span></em><span class="sig-paren">)</span><a class="headerlink" href="#toolbox.Net.from_json_file" title="Permalink to this definition">¶</a></dt>
 <dd><p>Overwrite contents of this Net with data from jsonstr.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
@@ -419,6 +453,14 @@ the order of nodes in the Net.</p>
 </dd></dl>
 
 <dl class="py method">
+<dt id="toolbox.Net.nodeTpm">
+<code class="sig-name descname">nodeTpm</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">nodeLabel</span></em><span class="sig-paren">)</span><a class="headerlink" href="#toolbox.Net.nodeTpm" title="Permalink to this definition">¶</a></dt>
+<dd><p>Generate local TPM for node from system TPM.
+Resulting TPM only uses in-states that matter to the result of nodeLabel.
+Accepts non-binary nodes.</p>
+</dd></dl>
+
+<dl class="py method">
 <dt id="toolbox.Net.node_labels">
 <em class="property">property </em><code class="sig-name descname">node_labels</code><a class="headerlink" href="#toolbox.Net.node_labels" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
@@ -454,6 +496,12 @@ Otherwise the error ‘cannot be reached in the given TPM’ is thrown.</p>
 <dt id="toolbox.Net.pyphi_network">
 <em class="property">property </em><code class="sig-name descname">pyphi_network</code><a class="headerlink" href="#toolbox.Net.pyphi_network" title="Permalink to this definition">¶</a></dt>
 <dd><p>Return pyphi Network() instance.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt id="toolbox.Net.save">
+<code class="sig-name descname">save</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">filename</span></em><span class="sig-paren">)</span><a class="headerlink" href="#toolbox.Net.save" title="Permalink to this definition">¶</a></dt>
+<dd><p>Save in JSON format.</p>
 </dd></dl>
 
 <dl class="py method">
@@ -552,10 +600,43 @@ spn:: States Per Node</p>
 </dd></dl>
 
 <dl class="py function">
+<dt id="toolbox.convert_networks_to_nets">
+<code class="sig-prename descclassname">toolbox.</code><code class="sig-name descname">convert_networks_to_nets</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">outdir</span></em>, <em class="sig-param"><span class="n">network_func_list</span><span class="o">=</span><span class="default_value">[]</span></em><span class="sig-paren">)</span><a class="headerlink" href="#toolbox.convert_networks_to_nets" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py function">
 <dt id="toolbox.dotgraph">
-<code class="sig-prename descclassname">toolbox.</code><code class="sig-name descname">dotgraph</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">G</span></em>, <em class="sig-param"><span class="n">pngfile</span></em><span class="sig-paren">)</span><a class="headerlink" href="#toolbox.dotgraph" title="Permalink to this definition">¶</a></dt>
-<dd><p>Return networkx DiGraph. Maybe write to PNG file.</p>
+<code class="sig-prename descclassname">toolbox.</code><code class="sig-name descname">dotgraph</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">G</span></em>, <em class="sig-param"><span class="n">pngfile</span><span class="o">=</span><span class="default_value">None</span></em><span class="sig-paren">)</span><a class="headerlink" href="#toolbox.dotgraph" title="Permalink to this definition">¶</a></dt>
+<dd><p>Draw a networkx graph (in notebook, ipython).</p>
+<p>In ipython, execute <code class="docutils literal notranslate"><span class="pre">matplotlib.pyplot.show()</span></code> to force display.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>pngfile</strong> – (str) Filename to write image to. (if None, use tmpfile)</p>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>image of graph rendering.</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>IPython.display.Image</p>
+</dd>
+</dl>
 </dd></dl>
+
+<dl class="py function">
+<dt id="toolbox.load_net">
+<code class="sig-prename descclassname">toolbox.</code><code class="sig-name descname">load_net</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">filename</span></em><span class="sig-paren">)</span><a class="headerlink" href="#toolbox.load_net" title="Permalink to this definition">¶</a></dt>
+<dd><p>Create net from JSON format.</p>
+</dd></dl>
+
+<dl class="py function">
+<dt id="toolbox.main">
+<code class="sig-prename descclassname">toolbox.</code><code class="sig-name descname">main</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#toolbox.main" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py function">
+<dt id="toolbox.my_parser">
+<code class="sig-prename descclassname">toolbox.</code><code class="sig-name descname">my_parser</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#toolbox.my_parser" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
 
 <dl class="py function">
 <dt id="toolbox.nodes_state">
@@ -570,10 +651,26 @@ spn:: States Per Node</p>
 </dd></dl>
 
 <dl class="py function">
+<dt id="toolbox.pyphi_example_module2networks">
+<code class="sig-prename descclassname">toolbox.</code><code class="sig-name descname">pyphi_example_module2networks</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">moduleName</span><span class="o">=</span><span class="default_value">'pyphi.examples'</span></em><span class="sig-paren">)</span><a class="headerlink" href="#toolbox.pyphi_example_module2networks" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py function">
 <dt id="toolbox.pyphi_network_to_net">
 <code class="sig-prename descclassname">toolbox.</code><code class="sig-name descname">pyphi_network_to_net</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">network</span></em><span class="sig-paren">)</span><a class="headerlink" href="#toolbox.pyphi_network_to_net" title="Permalink to this definition">¶</a></dt>
-<dd><p>Load pyphi network into this instance (overwrite existing data).</p>
+<dd><p>Return new Net stuffed with content of Network.</p>
 </dd></dl>
+
+<dl class="py function">
+<dt id="toolbox.rep_nth_char">
+<code class="sig-prename descclassname">toolbox.</code><code class="sig-name descname">rep_nth_char</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">ss</span></em>, <em class="sig-param"><span class="n">n</span></em>, <em class="sig-param"><span class="n">c</span><span class="o">=</span><span class="default_value">''</span></em><span class="sig-paren">)</span><a class="headerlink" href="#toolbox.rep_nth_char" title="Permalink to this definition">¶</a></dt>
+<dd><p>Remove or replace nth char in string SS</p>
+</dd></dl>
+
+<dl class="py function">
+<dt id="toolbox.sample">
+<code class="sig-prename descclassname">toolbox.</code><code class="sig-name descname">sample</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">net</span><span class="o">=</span><span class="default_value">None</span></em><span class="sig-paren">)</span><a class="headerlink" href="#toolbox.sample" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
 
 <dl class="py function">
 <dt id="toolbox.system_state">
@@ -653,7 +750,7 @@ spn:: States Per Node</p>
     </div>
     <div class="footer" role="contentinfo">
         &#169; Copyright 2020, S.Pothier.
-      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 3.0.3.
+      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 3.0.4.
     </div>
   </body>
 </html>

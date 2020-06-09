@@ -9,3 +9,5 @@
 1. `cd phial`
 2. `pytest --doctest-modules`
     
+# Document (Sphinx with autodoc)
+1. `make html`
